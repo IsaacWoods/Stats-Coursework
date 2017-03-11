@@ -29,13 +29,28 @@ extractFloat :: Maybe Float -> Float
 extractFloat temp = case temp of Nothing -> 0.0
                                  Just x  -> x
 
-createPlotForStation :: String -> EC (Layout Float Float) ()
-createPlotForStation weatherFile = do
+plotStation_MeanMinMax :: String -> EC (Layout Float Float) ()
+plotStation_MeanMinMax weatherFile = do
   let weatherData = parseData $ drop 7 $ lines weatherFile
-  let june    = [(extractFloat $ tmax m, extractFloat $ rain m) | m <- weatherData, month m == 6]
-      july    = [(extractFloat $ tmax m, extractFloat $ rain m) | m <- weatherData, month m == 7]
-      august  = [(extractFloat $ tmax m, extractFloat $ rain m) | m <- weatherData, month m == 8]
-      mean    = zipWith3 (\month1 month2 month3 -> (((fst month1) + (fst month2) + (fst month3)) / 3, ((snd month1) + (snd month2) + (snd month3)) / 3)) june july august
+  let juneMin     = [(extractFloat $ tmin m, extractFloat $ rain m) | m <- weatherData, month m == 6]
+      julyMin     = [(extractFloat $ tmin m, extractFloat $ rain m) | m <- weatherData, month m == 7]
+      augustMin   = [(extractFloat $ tmin m, extractFloat $ rain m) | m <- weatherData, month m == 8]
+      juneMax     = [(extractFloat $ tmax m, extractFloat $ rain m) | m <- weatherData, month m == 6]
+      julyMax     = [(extractFloat $ tmax m, extractFloat $ rain m) | m <- weatherData, month m == 7]
+      augustMax   = [(extractFloat $ tmax m, extractFloat $ rain m) | m <- weatherData, month m == 8]
+      june        = zipWith (\a b -> (((fst a) + (fst b)) / 2, ((snd a) + (snd b)) / 2)) juneMin juneMax
+      july        = zipWith (\a b -> (((fst a) + (fst b)) / 2, ((snd a) + (snd b)) / 2)) julyMin julyMax
+      august      = zipWith (\a b -> (((fst a) + (fst b)) / 2, ((snd a) + (snd b)) / 2)) augustMin augustMax
+      mean        = zipWith3 (\a b c -> (((fst a) + (fst b) + (fst c)) / 3, ((snd a) + (snd b) + (snd c)) / 3)) june july august
+  plot (points "mean" mean)
+
+plotStation_Max :: String -> EC (Layout Float Float) ()
+plotStation_Max weatherFile = do
+  let weatherData = parseData $ drop 7 $ lines weatherFile
+  let june        = [(extractFloat $ tmax m, extractFloat $ rain m) | m <- weatherData, month m == 6]
+      july        = [(extractFloat $ tmax m, extractFloat $ rain m) | m <- weatherData, month m == 7]
+      august      = [(extractFloat $ tmax m, extractFloat $ rain m) | m <- weatherData, month m == 8]
+      mean        = zipWith3 (\a b c -> (((fst a) + (fst b) + (fst c)) / 3, ((snd a) + (snd b) + (snd c)) / 3)) june july august
   plot (points "mean" mean)
 
 main :: IO ()
@@ -44,7 +59,7 @@ main = do
 
   toFile def "test.png" $ do
     layout_title .= "Test Graph"
-    layout_x_axis . laxis_title .= "Temperature (degrees C)"
+    layout_x_axis . laxis_title .= "Average Temperature (°C)"
     layout_y_axis . laxis_title .= "Rainfall (cm)"
     setColors [opaque blue, opaque red, opaque cyan]
-    mapM_ createPlotForStation weatherStations
+    mapM_ plotStation_Max weatherStations
