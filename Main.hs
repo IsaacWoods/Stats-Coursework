@@ -3,9 +3,6 @@ import Text.Read
 import Graphics.Rendering.Chart.Easy
 import Graphics.Rendering.Chart.Backend.Cairo
 
-signal :: [Double] -> [(Double,Double)]
-signal xs = [(x,(sin (2*x))) | x <- xs]
-
 data MonthData = MonthData {year      :: Int,
                             month     :: Int,
                             tmax      :: Maybe Float,
@@ -24,11 +21,27 @@ parseData = foldr parsingFunction [] . map words
                                                       frostDays = readMaybe (line!!4),
                                                       rain      = readMaybe (line!!5)}:xs
 
+extractFloat :: Maybe Float -> Float
+extractFloat temp = case temp of Nothing -> 0.0
+                                 Just x  -> x
+
+mean :: (Fractional a) => [a] -> a
+mean xs = sum xs / (fromIntegral $ length xs)
+
 main :: IO ()
 main = do
   dataFile <- readFile "heathrow.txt"
-  mapM_ putStrLn $ map show $ parseData $ drop 7 $ lines dataFile
+  let weatherData = parseData $ drop 7 $ lines dataFile
+--  mapM_ putStrLn $ map show weatherData
+
   toFile def "test.png" $ do
     layout_title .= "Test Graph"
-    setColors [opaque blue, opaque red]
-    plot (line "am" [signal [0,(0.005)..(2*3.14)]])
+    layout_x_axis . laxis_title .= "Temperature (degrees C)"
+    layout_y_axis . laxis_title .= "Rainfall (cm)"
+    setColors [opaque blue, opaque red, opaque cyan]
+    let june  = [(extractFloat $ tmax m, extractFloat $ rain m) | m <- weatherData, month m == 6]
+        july = [(extractFloat $ tmax m, extractFloat $ rain m) | m <- weatherData, month m == 7]
+        august = [(extractFloat $ tmax m, extractFloat $ rain m) | m <- weatherData, month m == 8]
+--    plot (points "june"  june)
+--    plot (points "july" july)
+    plot (points "august" august)
