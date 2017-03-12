@@ -33,8 +33,8 @@ extractFloat temp = case temp of Nothing -> 0.0
                                  Just x  -> x
 
 -- Takes an average of the minimum and maximum temperatures and plots that against rainfall
-plotStation_MeanMinMax :: WeatherStation -> EC (Layout Float Float) ()
-plotStation_MeanMinMax station = do
+plotStation_MeanMinMax :: WeatherStation -> [(Float,Float)]
+plotStation_MeanMinMax station =
   let juneMin     = [(extractFloat $ tmin m, extractFloat $ rainfall m) | m <- (weatherData station), month m == 6]
       julyMin     = [(extractFloat $ tmin m, extractFloat $ rainfall m) | m <- (weatherData station), month m == 7]
       augustMin   = [(extractFloat $ tmin m, extractFloat $ rainfall m) | m <- (weatherData station), month m == 8]
@@ -44,17 +44,16 @@ plotStation_MeanMinMax station = do
       june        = zipWith (\a b -> (((fst a) + (fst b)) / 2, ((snd a) + (snd b)) / 2)) juneMin juneMax
       july        = zipWith (\a b -> (((fst a) + (fst b)) / 2, ((snd a) + (snd b)) / 2)) julyMin julyMax
       august      = zipWith (\a b -> (((fst a) + (fst b)) / 2, ((snd a) + (snd b)) / 2)) augustMin augustMax
-      mean        = zipWith3 (\a b c -> (((fst a) + (fst b) + (fst c)) / 3, ((snd a) + (snd b) + (snd c)) / 3)) june july august
-  plot (points (name station) mean)
+  in zipWith3 (\a b c -> (((fst a) + (fst b) + (fst c)) / 3, ((snd a) + (snd b) + (snd c)) / 3)) june july august
 
 -- Plots maximum temperature against rainfall
-plotStation_Max :: WeatherStation -> EC (Layout Float Float) ()
-plotStation_Max station = do
+plotStation_Max :: WeatherStation -> [(Float,Float)]
+plotStation_Max station =
   let june        = [(extractFloat $ tmax m, extractFloat $ rainfall m) | m <- (weatherData station), month m == 6]
       july        = [(extractFloat $ tmax m, extractFloat $ rainfall m) | m <- (weatherData station), month m == 7]
       august      = [(extractFloat $ tmax m, extractFloat $ rainfall m) | m <- (weatherData station), month m == 8]
       mean        = zipWith3 (\a b c -> (((fst a) + (fst b) + (fst c)) / 3, ((snd a) + (snd b) + (snd c)) / 3)) june july august
-  plot (points (name station) mean)
+  in zipWith3 (\a b c -> (((fst a) + (fst b) + (fst c)) / 3, ((snd a) + (snd b) + (snd c)) / 3)) june july august
 
 qsort :: (Ord a) => [a] -> [a]
 qsort [] = []
@@ -74,15 +73,16 @@ spearmans xs ys = let n = fromIntegral $ length xs
 
 main :: IO ()
 main = do
---  weatherStations <- mapM (readFile . ("stations/"++)) ["armagh.txt", "heathrow.txt", "lowestoft.txt", "rossonwye.txt", "sheffield.txt", "nairn.txt", "eskdalemuir.txt"]
   weatherStations <- mapM (readFile . ("stations/"++)) ["armagh.txt", "heathrow.txt", "lowestoft.txt", "rossonwye.txt", "sheffield.txt", "nairn.txt", "durham.txt"]
+  let stationData = map plotStation_Max $ map parseData weatherStations
+      temps = concat $ map (map fst) stationData
+      rainfalls = concat $ map (map snd) stationData
 
-  -- This should be 0.67
-  putStrLn $ show $ spearmans [56.0,75.0,45.0,71.0,62.0,64.0,58.0,80.0,76.0,61.0] [66.0,70.0,40.0,60.0,65.0,56.0,59.0,77.0,67.0,63.0]
+  putStrLn $ show $ spearmans temps rainfalls
 
   toFile def "test.png" $ do
-    layout_title .= "Test Graph"
-    layout_x_axis . laxis_title .= "Average Temperature (°C)"
     layout_y_axis . laxis_title .= "Rainfall (cm)"
     setColors [opaque blue, opaque red, opaque cyan, opaque darkred, opaque green, opaque dimgrey, opaque deeppink]
-    mapM_ plotStation_Max $ map parseData weatherStations
+    layout_title .= "Maximum Temperature vs. Rainfall"
+    layout_x_axis . laxis_title .= "Maximum Temperature (°C)"
+    mapM_ (\station -> plot (points (name station) (plotStation_Max station))) $ map parseData weatherStations
