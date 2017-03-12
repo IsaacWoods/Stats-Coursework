@@ -1,10 +1,7 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE ExistentialQuantification #-}
-
 import System.IO
 import Text.Read
 import Data.List
+import Data.Maybe
 import Graphics.Rendering.Chart.Easy
 import Graphics.Rendering.Chart.Backend.Cairo
 
@@ -28,32 +25,25 @@ parseData file = WeatherStation ((lines file) !! 0) (foldr parsingFunction [] $ 
                                                            frostDays = readMaybe (line!!4),
                                                            rainfall  = readMaybe (line!!5)}:xs
 
-extractFloat :: Maybe Float -> Float
-extractFloat temp = case temp of Nothing -> 0.0
-                                 Just x  -> x
+calcMean :: (Fractional a) => [a] -> a
+calcMean xs = (sum xs) / (fromIntegral $ length xs)
 
--- Takes an average of the minimum and maximum temperatures and plots that against rainfall
-plotStation_MeanMinMax :: WeatherStation -> [(Float,Float)]
-plotStation_MeanMinMax station =
-  let juneMin     = [(extractFloat $ tmin m, extractFloat $ rainfall m) | m <- (weatherData station), month m == 6]
-      julyMin     = [(extractFloat $ tmin m, extractFloat $ rainfall m) | m <- (weatherData station), month m == 7]
-      augustMin   = [(extractFloat $ tmin m, extractFloat $ rainfall m) | m <- (weatherData station), month m == 8]
-      juneMax     = [(extractFloat $ tmax m, extractFloat $ rainfall m) | m <- (weatherData station), month m == 6]
-      julyMax     = [(extractFloat $ tmax m, extractFloat $ rainfall m) | m <- (weatherData station), month m == 7]
-      augustMax   = [(extractFloat $ tmax m, extractFloat $ rainfall m) | m <- (weatherData station), month m == 8]
-      june        = zipWith (\a b -> (((fst a) + (fst b)) / 2, ((snd a) + (snd b)) / 2)) juneMin juneMax
-      july        = zipWith (\a b -> (((fst a) + (fst b)) / 2, ((snd a) + (snd b)) / 2)) julyMin julyMax
-      august      = zipWith (\a b -> (((fst a) + (fst b)) / 2, ((snd a) + (snd b)) / 2)) augustMin augustMax
-  in zipWith3 (\a b c -> (((fst a) + (fst b) + (fst c)) / 3, ((snd a) + (snd b) + (snd c)) / 3)) june july august
+calcStandardDeviation :: (Floating a, Fractional a) => [a] -> a
+calcStandardDeviation xs =
+  let mean = calcMean xs
+  in sqrt $ (sum $ (map (^^2) $ map (subtract mean) xs))/(fromIntegral $ length xs)
 
--- Plots maximum temperature against rainfall
-plotStation_Max :: WeatherStation -> [(Float,Float)]
-plotStation_Max station =
-  let june        = [(extractFloat $ tmax m, extractFloat $ rainfall m) | m <- (weatherData station), month m == 6]
-      july        = [(extractFloat $ tmax m, extractFloat $ rainfall m) | m <- (weatherData station), month m == 7]
-      august      = [(extractFloat $ tmax m, extractFloat $ rainfall m) | m <- (weatherData station), month m == 8]
-      mean        = zipWith3 (\a b c -> (((fst a) + (fst b) + (fst c)) / 3, ((snd a) + (snd b) + (snd c)) / 3)) june july august
-  in zipWith3 (\a b c -> (((fst a) + (fst b) + (fst c)) / 3, ((snd a) + (snd b) + (snd c)) / 3)) june july august
+elim :: Maybe Float -> Float
+elim temp = case temp of Nothing -> 0.0
+                         Just x  -> x
+
+calculatePoints :: WeatherStation -> [(Float,Float)]
+calculatePoints station =
+  let june        = [(elim $ tmax m, elim $ rainfall m) | m<-(weatherData station), month m==6, isJust $ tmax m, isJust $ rainfall m]
+      july        = [(elim $ tmax m, elim $ rainfall m) | m<-(weatherData station), month m==7, isJust $ tmax m, isJust $ rainfall m]
+      august      = [(elim $ tmax m, elim $ rainfall m) | m<-(weatherData station), month m==8, isJust $ tmax m, isJust $ rainfall m]
+      mean a b c  = (((fst a)+(fst b)+(fst c))/3, ((snd a)+(snd b)+(snd c))/3)
+  in zipWith3 (mean) june july august
 
 qsort :: (Ord a) => [a] -> [a]
 qsort [] = []
@@ -67,22 +57,24 @@ rank xs = let n = fromIntegral $ length xs
           in map (\x -> n - ((rankerThingy x xs'))) xs
 
 -- NOTE(Isaac): there are assumed to be as many items of data in both sets
-spearmans :: (Ord a, Fractional a) => [a] -> [a] -> a
-spearmans xs ys = let n = fromIntegral $ length xs
-                  in 1.0 - (6.0 * (sum $ map (^^2) $ zipWith (-) (rank xs) (rank ys))) / (n * (n^^2 - 1.0))
+calcSpearmans :: (Ord a, Fractional a) => [a] -> [a] -> a
+calcSpearmans xs ys = let n = fromIntegral $ length xs
+                  in 1.0-(6.0*(sum $ map (^^2) $ zipWith (-) (rank xs) (rank ys)))/(n * (n^^2-1.0))
 
 main :: IO ()
 main = do
   weatherStations <- mapM (readFile . ("stations/"++)) ["armagh.txt", "heathrow.txt", "lowestoft.txt", "rossonwye.txt", "sheffield.txt", "nairn.txt", "durham.txt"]
-  let stationData = map plotStation_Max $ map parseData weatherStations
-      temps = concat $ map (map fst) stationData
-      rainfalls = concat $ map (map snd) stationData
+  let stationData = map calculatePoints $ map parseData weatherStations
+      temps       = concat $ map (map fst) stationData
+      rainfalls   = concat $ map (map snd) stationData
+      spearmans   = calcSpearmans temps rainfalls
 
-  putStrLn $ show $ spearmans temps rainfalls
+  putStrLn $ ("Spearman's Rank Correlation Coefficient: "++) $ show $ spearmans
+  putStrLn $ show $ calcStandardDeviation [4.0,7.0,2.0,4.0,11.0]
 
   toFile def "test.png" $ do
     layout_y_axis . laxis_title .= "Rainfall (cm)"
     setColors [opaque blue, opaque red, opaque cyan, opaque darkred, opaque green, opaque dimgrey, opaque deeppink]
     layout_title .= "Maximum Temperature vs. Rainfall"
     layout_x_axis . laxis_title .= "Maximum Temperature (°C)"
-    mapM_ (\station -> plot (points (name station) (plotStation_Max station))) $ map parseData weatherStations
+    mapM_ (\station -> plot (points (name station) (calculatePoints station))) $ map parseData weatherStations
