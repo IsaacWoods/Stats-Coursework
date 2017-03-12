@@ -1,10 +1,4 @@
-Heathrow (London Airport)
-Location 507800E 176700N, Lat 51.479 Lon -0.449, 25m amsl
-Estimated data is marked with a * after the value.
-Missing data (more than 2 days missing in month) is marked by  ---.
-Sunshine data taken from an automatic Kipp & Zonen sensor marked with a #, otherwise sunshine data taken from a Campbell Stokes recorder.
-   yyyy  mm   tmax    tmin      af    rain     sun
-              degC    degC    days      mm   hours
+Heathrow
    1948   1    8.9     3.3    ---     85.0    ---
    1948   2    7.9     2.2    ---     26.0    ---
    1948   3   14.2     3.8    ---     14.0    ---
@@ -834,3 +828,4 @@ Sunshine data taken from an automatic Kipp & Zonen sensor marked with a #, other
    2016  11   10.5     3.8       3    88.4    77.4#  Provisional
    2016  12   10.2     3.4       7    10.4    55.1#  Provisional
    2017   1    7.6     0.7      15    60.2    64.5#  Provisional
+   2017   2   10.0     4.4       1    38.2    47.8#  Provisional
