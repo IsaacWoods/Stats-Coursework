@@ -2,6 +2,7 @@ import System.IO
 import Text.Read
 import Data.List
 import Data.Maybe
+import Data.Matrix as M
 import Graphics.Rendering.Chart.Easy
 import Graphics.Rendering.Chart.Backend.Cairo
 
@@ -61,6 +62,10 @@ calcSpearmans :: (Ord a, Fractional a) => [a] -> [a] -> a
 calcSpearmans xs ys = let n = fromIntegral $ length xs
                   in 1.0-(6.0*(sum $ map (^^2) $ zipWith (-) (rank xs) (rank ys)))/(n * (n^^2-1.0))
 
+fromRight :: Either a b -> b
+fromRight (Right x) = x
+fromRight (Left _) = error "Shit the bed"
+
 main :: IO ()
 main = do
   weatherStations <- mapM (readFile . ("stations/"++)) ["armagh.txt", "heathrow.txt", "lowestoft.txt", "rossonwye.txt", "sheffield.txt", "nairn.txt", "durham.txt"]
@@ -68,9 +73,17 @@ main = do
       temps       = concat $ map (map fst) stationData
       rainfalls   = concat $ map (map snd) stationData
       spearmans   = calcSpearmans temps rainfalls
+      tempSD      = calcStandardDeviation temps
+      rainfallSD  = calcStandardDeviation rainfalls
 
-  putStrLn $ ("Spearman's Rank Correlation Coefficient: "++) $ show $ spearmans
-  putStrLn $ show $ calcStandardDeviation [4.0,7.0,2.0,4.0,11.0]
+  putStrLn $ ("Spearman's Rank Correlation Coefficient: "++) $ show spearmans
+  putStrLn $ ("Standard deviation of max temperature: "++) $ show tempSD
+  putStrLn $ ("Standard deviation of rainfall: "++) $ show rainfallSD
+
+  let m = fromList 3 3 [3,2,-1,2,-2,4,-1,1/2,-1]
+      v = fromList 3 1 [1,-2,0] :: M.Matrix Float
+  putStrLn $ show v
+  putStrLn $ show $ multStd (fromRight $ inverse m) v
 
   toFile def "test.png" $ do
     layout_y_axis . laxis_title .= "Rainfall (cm)"

@@ -21,6 +21,7 @@ executable Stats
   -- other-extensions:    
   build-depends:       base >=4.8 && <4.9,
                        Chart,
-                       Chart-cairo
+                       Chart-cairo,
+                       matrix
   -- hs-source-dirs:      
   default-language:    Haskell2010
