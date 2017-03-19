@@ -64,7 +64,24 @@ calcSpearmans xs ys = let n = fromIntegral $ length xs
 
 fromRight :: Either a b -> b
 fromRight (Right x) = x
-fromRight (Left _) = error "Shit the bed"
+fromRight (Left _) = error "Failed to find inverse of matrix during least-squares regression analysis"
+
+type LineEquation = (Float,Float)
+
+calcRegressionLine :: [(Float,Float)] -> LineEquation
+calcRegressionLine points = let n             = fromIntegral $ length points
+                                sumXn         = sum $ map (fst) points
+                                sumXnSquared  = sum $ map (^^2) $ map (fst) points
+                                sumXnYn       = sum $ zipWith (*) (map (fst) points) (map (snd) points)
+                                sumYn         = sum $ map (snd) points
+                                m             = fromList 2 2 [sumXnSquared,sumXn,sumXn,n]
+                                vector        = fromList 2 1 [sumXnYn,sumYn]
+                                solution      = (fromRight $ inverse m) * vector
+                            in (solution!(1,1), solution!(2,1))
+
+plotPointsForLine :: LineEquation -> Float -> Float -> [(Float,Float)]
+plotPointsForLine equation xStart xEnd = (plotPoint equation xStart):[(plotPoint equation xEnd)]
+                                         where plotPoint equation x = (x, x*(fst equation) + (snd equation))
 
 main :: IO ()
 main = do
@@ -75,15 +92,12 @@ main = do
       spearmans   = calcSpearmans temps rainfalls
       tempSD      = calcStandardDeviation temps
       rainfallSD  = calcStandardDeviation rainfalls
+      plotPoints  = zipWith (\x y -> (x,y)) temps rainfalls
+      bestFitLine = calcRegressionLine plotPoints
 
   putStrLn $ ("Spearman's Rank Correlation Coefficient: "++) $ show spearmans
   putStrLn $ ("Standard deviation of max temperature: "++) $ show tempSD
   putStrLn $ ("Standard deviation of rainfall: "++) $ show rainfallSD
-
-  let m = fromList 3 3 [3,2,-1,2,-2,4,-1,1/2,-1]
-      v = fromList 3 1 [1,-2,0] :: M.Matrix Float
-  putStrLn $ show v
-  putStrLn $ show $ multStd (fromRight $ inverse m) v
 
   toFile def "test.png" $ do
     layout_y_axis . laxis_title .= "Rainfall (cm)"
@@ -91,3 +105,5 @@ main = do
     layout_title .= "Maximum Temperature vs. Rainfall"
     layout_x_axis . laxis_title .= "Maximum Temperature (°C)"
     mapM_ (\station -> plot (points (name station) (calculatePoints station))) $ map parseData weatherStations
+    -- The values chosen for the x-range are hacky and horrible but cba to do it properly
+    plot (line "Line of Best Fit" [(plotPointsForLine bestFitLine 15.75 25.75)])
