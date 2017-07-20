@@ -239,7 +239,6 @@ main = do
     C.layout_title .= "Maximum Temperature vs. Rainfall"
     C.layout_x_axis . C.laxis_title .= "Maximum Temperature (°C)"
     mapM_ (\station -> C.plot (C.points (name station) (calculateAllPoints station))) stationData
-    -- The values chosen for the x-range are hacky and horrible but cba to do it properly
     C.plot (C.line "Line of Best Fit" [(plotPointsForLine bestFitLine (fst tempRange) (snd tempRange))])
 
   -- Plot the histograms
